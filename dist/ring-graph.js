@@ -1,6 +1,6 @@
 /* Nine layer circles. Each sticker is an intersection of its two tangential layers. */
 (function(root){
-const {slots,faces,rotate,dot}=Rubik,TAU=2*Math.PI;
+const {slots,faces,rotate,dot,moveRule}=Rubik,TAU=2*Math.PI;
 const centers=[-30,90,210].map(deg=>[Math.cos(deg*Math.PI/180),Math.sin(deg*Math.PI/180)]);
 const radius=layer=>1.64-.32*layer;
 const rings=centers.flatMap((center,axis)=>[-1,0,1].map(layer=>({axis,layer,center,r:radius(layer)})));
@@ -16,10 +16,10 @@ const positions=slots.map(s=>{
 function track(center,ids){return {center,ids:ids.sort((a,b)=>Math.atan2(positions[a][1]-center[1],positions[a][0]-center[0])-Math.atan2(positions[b][1]-center[1],positions[b][0]-center[0]))}}
 rings.forEach(r=>r.track=track(r.center,slots.map((s,i)=>i).filter(i=>slots[i].p[r.axis]===r.layer&&slots[i].n[r.axis]===0)));
 const graphEdges=[];rings.forEach(r=>r.track.ids.forEach((a,k,ids)=>graphEdges.push([a,ids[(k+1)%ids.length]])));
-function permutation(move){const normal=faces.find(f=>f.id===move[0]).n,angle=(move.endsWith("'")?1:-1)*Math.PI/2;return slots.map((s,i)=>{if(dot(s.p,normal)!==1)return i;const p=rotate(s.p,normal,angle).map(Math.round),n=rotate(s.n,normal,angle).map(Math.round);return slots.findIndex(t=>t.p.every((v,k)=>v===p[k])&&t.n.every((v,k)=>v===n[k]))})}
-function motion(move){const normal=faces.find(f=>f.id===move[0]).n,axis=normal.findIndex(v=>v!==0),layer=normal[axis],ring=rings.find(r=>r.axis===axis&&r.layer===layer),mapping=permutation(move);
+function permutation(move){const rule=moveRule(move),normal=rule.n,angle=rule.angle;return slots.map((s,i)=>{if(dot(s.p,normal)!==rule.layer)return i;const p=rotate(s.p,normal,angle).map(Math.round),n=rotate(s.n,normal,angle).map(Math.round);return slots.findIndex(t=>t.p.every((v,k)=>v===p[k])&&t.n.every((v,k)=>v===n[k]))})}
+function motion(move){const rule=moveRule(move),normal=rule.n,axis=normal.findIndex(v=>v!==0),layer=normal[axis]*rule.layer,ring=rings.find(r=>r.axis===axis&&r.layer===layer),mapping=permutation(move);
  const face=slots.map((s,i)=>i).filter(i=>slots[i].n[axis]===layer),middle=face.find(i=>slots[i].p.every((v,k)=>k===axis||v===0));
- const rim=track(positions[middle],face.filter(i=>i!==middle)),tracks=[ring.track,rim],routes=new Map();
+ const tracks=[ring.track],routes=new Map();if(layer!==0)tracks.push(track(positions[middle],face.filter(i=>i!==middle)));
  tracks.forEach(tr=>tr.ids.forEach((id,k)=>{let steps=(tr.ids.indexOf(mapping[id])-k+tr.ids.length)%tr.ids.length;if(steps>tr.ids.length/2)steps-=tr.ids.length;routes.set(id,{tr,k,steps})}));
  return {ring,mapping,routes};
 }
